@@ -139,7 +139,8 @@ export default function ChatUI() {
                   message: msg.text,
                   sentTime: msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                   sender: msg.sender,
-                  direction: msg.sender === 'user' ? 'outgoing' : 'incoming'
+                  direction: msg.sender === 'user' ? 'outgoing' : 'incoming',
+                  position: 'single'
                 }}
                 avatarPosition={msg.sender === 'user' ? 'tr' : 'tl'}
               />

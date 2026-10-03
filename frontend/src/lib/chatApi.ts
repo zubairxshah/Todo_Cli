@@ -37,9 +37,8 @@ export const chatApi = {
 
       try {
         // Call backend chat endpoint - note the correct path is /api/chat/ based on router prefix
-        const response = await api.post('/api/chat/', { message }, {
-          signal: currentAbortController.signal
-        });
+        // The JWT is attached by api.request; the backend derives the user from it
+        const response = await api.post('/api/chat/', { message });
 
         clearTimeout(timeoutId);
 

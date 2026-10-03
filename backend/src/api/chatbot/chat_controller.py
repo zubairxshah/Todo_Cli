@@ -4,11 +4,16 @@ from typing import Optional
 from .openrouter_client import get_openrouter_client
 from ...services.task_execution_service import TaskExecutionService
 from ...database import get_session
+from ...auth.jwt_handler import verify_token
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlmodel import Session
 import logging
 import uuid
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
+
+# Token is optional: plain conversation works without login, task commands need it
+optional_bearer = HTTPBearer(auto_error=False)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -17,7 +22,6 @@ logger = logging.getLogger(__name__)
 
 class ChatRequest(BaseModel):
     message: str
-    user_id: Optional[str] = None  # Optional user_id for task operations
 
 
 class ChatResponse(BaseModel):
@@ -29,14 +33,17 @@ class ChatResponse(BaseModel):
 @router.post("/", response_model=ChatResponse)
 async def chat_endpoint(
     chat_request: ChatRequest,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_bearer)
 ):
     """
     Main chat endpoint that handles user messages with task execution capability.
     Compatible with OpenAI SDK v2.0.0+
     """
     user_message = chat_request.message
-    user_id = chat_request.user_id
+    # The user comes from the verified token, never from the request body;
+    # an invalid or expired token raises 401
+    user_id = verify_token(credentials.credentials) if credentials else None
 
     # Log incoming request
     logger.info(f"Incoming chat request: {user_message[:100] if user_message else 'EMPTY'}")
@@ -56,14 +63,13 @@ async def chat_endpoint(
         
         if task_command:
             logger.info(f"Detected task command: {task_command['action']}")
-            
-            # Convert user_id to UUID if provided
-            user_uuid = None
-            if user_id:
-                try:
-                    user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
-                except (ValueError, TypeError):
-                    logger.warning(f"Invalid user_id: {user_id}")
+
+            if not user_id:
+                return ChatResponse(
+                    status="error",
+                    message="Please log in to manage your tasks."
+                )
+            user_uuid = uuid.UUID(user_id)
             
             # Execute the task operation
             if task_command['action'] == 'create':

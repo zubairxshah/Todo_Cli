@@ -12,7 +12,17 @@ from dotenv import load_dotenv
 load_dotenv(Path(".env.local"))
 
 BACKEND_URL = "http://localhost:8000"
-TEST_USER_ID = str(uuid.uuid4())
+TEST_EMAIL = f"chat-test-{uuid.uuid4().hex[:8]}@example.com"
+
+# Sign up a throwaway user; the chat API takes the user from the JWT
+signup = httpx.post(
+    f"{BACKEND_URL}/api/auth/signup",
+    json={"email": TEST_EMAIL, "password": "test-password-123"},
+    timeout=30.0
+)
+signup.raise_for_status()
+AUTH_HEADERS = {"Authorization": f"Bearer {signup.json()['access_token']}"}
+print(f"Signed up test user {TEST_EMAIL}")
 
 print("=" * 60)
 print("Testing Chatbot Task Execution")
@@ -28,7 +38,8 @@ test_message = "add a new task visit to park"
 try:
     response = httpx.post(
         f"{BACKEND_URL}/api/chat/",
-        json={"message": test_message, "user_id": TEST_USER_ID},
+        json={"message": test_message},
+        headers=AUTH_HEADERS,
         timeout=30.0
     )
     chat_data = response.json()
@@ -49,7 +60,8 @@ test_message = "show all tasks"
 try:
     response = httpx.post(
         f"{BACKEND_URL}/api/chat/",
-        json={"message": test_message, "user_id": TEST_USER_ID},
+        json={"message": test_message},
+        headers=AUTH_HEADERS,
         timeout=30.0
     )
     chat_data = response.json()
@@ -69,7 +81,8 @@ test_message = "create task buy groceries"
 try:
     response = httpx.post(
         f"{BACKEND_URL}/api/chat/",
-        json={"message": test_message, "user_id": TEST_USER_ID},
+        json={"message": test_message},
+        headers=AUTH_HEADERS,
         timeout=30.0
     )
     chat_data = response.json()
@@ -89,7 +102,8 @@ test_message = "list all my tasks"
 try:
     response = httpx.post(
         f"{BACKEND_URL}/api/chat/",
-        json={"message": test_message, "user_id": TEST_USER_ID},
+        json={"message": test_message},
+        headers=AUTH_HEADERS,
         timeout=30.0
     )
     chat_data = response.json()
