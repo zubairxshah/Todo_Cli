@@ -11,15 +11,20 @@ import uvicorn
 
 from src.main import app as api
 
-# ZeroGPU Spaces stop any app without a @spaces.GPU function. The backend needs
-# no GPU; this unused stub keeps it running there. The `spaces` package only
-# exists on Spaces hardware, so elsewhere this is skipped.
+# ZeroGPU Spaces stop any app that has not reported a @spaces.GPU function at
+# startup. The backend needs no GPU, so register an unused stub. The `spaces`
+# package sends that report from a hook on gr.Blocks.launch(), which this app
+# never calls (uvicorn serves it), so send the report directly instead.
 try:
     import spaces
+    from spaces.config import Config as _SpacesConfig
 
     @spaces.GPU
     def _zerogpu_placeholder():
         return None
+
+    if _SpacesConfig.zero_gpu:
+        spaces.zero.startup()
 except ImportError:
     pass
 
