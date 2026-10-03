@@ -1,80 +1,70 @@
-# Deployment Guide for Todo Chatbot Application
+# Deployment Guide
 
-## Backend Deployment (Render)
+The backend (FastAPI + Postgres) runs on **Render**, the frontend (Next.js) on **Vercel**.
+Deploy the backend first, because the frontend needs its URL.
 
-### Prerequisites
-- Render account
-- OpenRouter API key
+## 1. Backend on Render
 
-### Steps
-1. Create a new Web Service on Render
-2. Connect to your GitHub repository
-3. Set the following environment variables:
-   - `OPEN_ROUTER_API_KEY`: Your OpenRouter API key
-   - `OPEN_ROUTER_URL`: `https://openrouter.ai/api/v1/chat/completions`
-   - `DATABASE_URL`: Your PostgreSQL database URL (from Neon or other provider)
-4. Use the `render.yaml` file in the `backend/` directory for automatic configuration
-5. The start command will be automatically detected as `python start_server.py`
+1. Sign in at https://render.com with GitHub.
+2. **New → Blueprint**, pick this repository. Render reads `render.yaml` from the repo
+   root and creates:
+   - `todo-backend`, a web service built from `backend/`
+   - `todo-db`, a free Postgres database, wired in as `DATABASE_URL`
+   - `SECRET_KEY`, generated automatically (signs login tokens)
+3. When asked for `OPEN_ROUTER_API_KEY`, paste your OpenRouter key.
+4. Wait for the deploy to finish, then open `https://<your-service>.onrender.com/health`.
+   It should return `{"status": "healthy", ...}`. Copy this base URL.
 
-### Expected Result
-- You'll get a URL like `https://your-app-name.onrender.com`
+Free-plan notes: the service sleeps after ~15 minutes idle, so the first request can
+take about a minute. A free Render database expires after 30 days; for a lasting
+database, create one at https://neon.tech and set its URL as `DATABASE_URL` instead.
 
-## Frontend Deployment (Vercel)
+## 2. Frontend on Vercel
 
-### Prerequisites
-- Vercel account
-- Deployed backend URL
+1. Sign in at https://vercel.com with GitHub. **Add New → Project**, import this repository.
+2. Set **Root Directory** to `frontend`. Framework preset: Next.js (detected).
+3. Add the environment variable:
 
-### Steps
-1. Go to https://vercel.com and create a new project
-2. Import your GitHub repository
-3. Set the following environment variable:
-   - `NEXT_PUBLIC_API_URL`: The URL of your deployed backend (e.g., `https://your-app-name.onrender.com`)
-4. Build command: `next build`
-5. Output directory: `.next`
-6. The configuration in `vercel.json` will be automatically detected
+   | Name | Value |
+   |------|-------|
+   | `NEXT_PUBLIC_API_BASE_URL` | Your Render URL, e.g. `https://todo-backend-xxxx.onrender.com` (no trailing slash) |
 
-### Expected Result
-- You'll get a URL like `https://your-project-name.vercel.app`
+4. Deploy. You'll get a URL like `https://<project>.vercel.app`.
+5. To share it publicly: Project → Settings → Deployment Protection → turn off
+   **Vercel Authentication**. Otherwise visitors must log in to Vercel.
 
-## Environment Variables Reference
+`NEXT_PUBLIC_*` values are baked in at build time. After changing one, redeploy.
+
+## Environment variables
 
 ### Backend (Render)
-| Variable | Value | Description |
-|----------|-------|-------------|
-| `OPEN_ROUTER_API_KEY` | Your API key | OpenRouter API key for AI chat functionality |
-| `OPEN_ROUTER_URL` | `https://openrouter.ai/api/v1/chat/completions` | OpenRouter API endpoint |
-| `DATABASE_URL` | PostgreSQL URL | Connection string for your PostgreSQL database |
+| Variable | Value | Set by |
+|----------|-------|--------|
+| `DATABASE_URL` | Postgres connection string | Blueprint (from `todo-db`) |
+| `SECRET_KEY` | Random string | Blueprint (generated) |
+| `OPEN_ROUTER_API_KEY` | Your OpenRouter key | You, in the Render dashboard |
+| `OPEN_ROUTER_URL` | `https://openrouter.ai/api/v1` | Blueprint |
+| `OPEN_ROUTER_MODEL` | Optional, default `openai/gpt-4o-mini` | You (optional) |
 
 ### Frontend (Vercel)
-| Variable | Value | Description |
-|----------|-------|-------------|
-| `NEXT_PUBLIC_API_URL` | Backend URL | The URL of your deployed backend server |
+| Variable | Value |
+|----------|-------|
+| `NEXT_PUBLIC_API_BASE_URL` | Backend base URL |
 
-## Post-Deployment Verification
+## Check after deploying
 
-After both deployments are complete, verify the following:
-
-1. Visit the frontend URL
-2. Confirm that:
-   - Login/Signup works
-   - Chatbot responds to messages
-   - Task creation, listing, updating, and deletion work
-   - All functionality connects properly to the backend
+1. Open the Vercel URL, register an account and log in.
+2. Add a task with a due date from the form; it shows a countdown.
+3. In the assistant panel: `add a task pay rent on coming tuesday`, then
+   `make it 9am`, then `delete the rent task`. The list updates each time,
+   without duplicates.
 
 ## Troubleshooting
 
-### Frontend 404 Errors
-- Ensure `vercel.json` has the correct route configuration
-- Verify `next.config.js` has `output: "standalone"`
-- Check that environment variables are properly set
-
-### API Connection Issues
-- Confirm that `NEXT_PUBLIC_API_URL` is set correctly in Vercel
-- Verify the backend is accessible at the specified URL
-- Check CORS settings on the backend
-
-### Chat Functionality Not Working
-- Ensure `OPEN_ROUTER_API_KEY` is set correctly in the backend
-- Verify the OpenRouter URL is properly configured
-- Check that the backend can reach the OpenRouter API
+- **"Could not load your tasks" / network errors:** `NEXT_PUBLIC_API_BASE_URL` is
+  missing or wrong, or the backend is still waking up. Check `/health` on Render,
+  fix the variable in Vercel and redeploy.
+- **Chat replies but never changes tasks:** `OPEN_ROUTER_API_KEY` is not set on
+  Render, so the simple fallback parser is used. Check the Render logs.
+- **Logged out after redeploying the backend:** expected if `SECRET_KEY` changed;
+  log in again.
