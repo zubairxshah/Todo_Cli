@@ -11,6 +11,18 @@ import uvicorn
 
 from src.main import app as api
 
+# ZeroGPU Spaces stop any app without a @spaces.GPU function. The backend needs
+# no GPU; this unused stub keeps it running there. The `spaces` package only
+# exists on Spaces hardware, so elsewhere this is skipped.
+try:
+    import spaces
+
+    @spaces.GPU
+    def _zerogpu_placeholder():
+        return None
+except ImportError:
+    pass
+
 with gr.Blocks(title="Todo Backend") as status_page:
     gr.Markdown(
         "# Todo Backend\n"
