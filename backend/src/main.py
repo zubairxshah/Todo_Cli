@@ -119,6 +119,8 @@ def create_task(
         title=task.title,
         description=task.description,
         completed=task.completed,
+        due_date=task.due_date,
+        due_time=task.due_time,
         user_id=uuid.UUID(user_id) if isinstance(user_id, str) else user_id
     )
     session.add(db_task)
@@ -134,7 +136,10 @@ def read_tasks(
 ):
     # Get tasks for the authenticated user only
     user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
-    tasks = session.exec(select(Task).where(Task.user_id == user_uuid)).all()
+    # Same order the chatbot uses for "task 1", "task 2", ...
+    tasks = session.exec(
+        select(Task).where(Task.user_id == user_uuid).order_by(Task.created_at)
+    ).all()
     return tasks
 
 

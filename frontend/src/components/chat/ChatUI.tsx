@@ -69,13 +69,15 @@ export default function ChatUI() {
       timestamp: new Date(),
     };
 
+    // Earlier turns let the assistant resolve "it" / "that task"
+    const history = messages.map(m => ({ role: m.sender, content: m.text }));
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
     setIsLoading(true);
 
     try {
       // Call the chat API
-      const response = await chatApi.sendMessage(text);
+      const response = await chatApi.sendMessage(text, history);
 
       // Only update state if component is still mounted
       if (isMountedRef.current) {

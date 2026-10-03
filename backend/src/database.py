@@ -58,6 +58,21 @@ engine = create_engine(
 def create_db_and_tables():
     """Create all database tables"""
     SQLModel.metadata.create_all(engine, checkfirst=True)
+    _add_missing_task_columns()
+
+
+def _add_missing_task_columns():
+    """create_all() never alters existing tables, so add columns introduced
+    after a database was first created (works on SQLite and PostgreSQL)."""
+    from sqlalchemy import inspect, text
+
+    new_columns = {"due_date": "DATE", "due_time": "VARCHAR(5)"}
+    existing = {col["name"] for col in inspect(engine).get_columns("task")}
+    with engine.begin() as conn:
+        for name, sql_type in new_columns.items():
+            if name not in existing:
+                conn.execute(text(f"ALTER TABLE task ADD COLUMN {name} {sql_type}"))
+                print(f"Added column task.{name}")
 
 
 def get_session() -> Generator[Session, None, None]:

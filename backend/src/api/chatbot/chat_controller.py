@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from typing import Optional
+from typing import List, Optional
 from .openrouter_client import get_openrouter_client
 from ...services.task_execution_service import TaskExecutionService
+from ...services.task_assistant import TaskAssistant
 from ...database import get_session
 from ...auth.jwt_handler import verify_token
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -20,8 +21,17 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+class ChatMessage(BaseModel):
+    role: str  # "user" or "assistant"
+    content: str
+
+
 class ChatRequest(BaseModel):
     message: str
+    # Recent conversation, so "it" / "that task" can be resolved
+    history: Optional[List[ChatMessage]] = None
+    # Browser's local time "YYYY-MM-DDTHH:MM", so dates use the user's today
+    client_now: Optional[str] = None
 
 
 class ChatResponse(BaseModel):
@@ -57,8 +67,27 @@ async def chat_endpoint(
             message=error_msg
         )
 
+    # Logged-in users with OpenRouter configured get the tool-using assistant,
+    # which sees their real tasks and today's date
+    openrouter_client = get_openrouter_client()
+    if user_id and openrouter_client.is_enabled:
+        try:
+            assistant = TaskAssistant(openrouter_client.async_client)
+            reply, changed = await assistant.run(
+                message=user_message,
+                session=session,
+                user_id=uuid.UUID(user_id),
+                history=[m.model_dump() for m in (chat_request.history or [])],
+                client_now=chat_request.client_now,
+            )
+            return ChatResponse(status="success", message=reply, data={"tasks_changed": changed})
+        except Exception as e:
+            # Fall back to the rule-based parser below rather than failing the chat
+            logger.error(f"Task assistant failed, using fallback parser: {e}", exc_info=True)
+            session.rollback()
+
     try:
-        # First, try to parse as task command
+        # Fallback: rule-based task command parsing
         task_command = TaskExecutionService.parse_task_command(user_message)
         
         if task_command:
@@ -136,8 +165,6 @@ async def chat_endpoint(
                 )
         
         # If not a task command, use OpenRouter for conversation
-        openrouter_client = get_openrouter_client()
-        
         # Generate response from OpenRouter using OpenAI SDK v2.0.0+
         openrouter_response = await openrouter_client.generate_response(user_message)
 

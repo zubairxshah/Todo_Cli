@@ -1,8 +1,16 @@
 // src/lib/chatApi.ts
 import { api } from './api';
 
-interface ChatRequest {
-  message: string;
+export interface ChatHistoryItem {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+// Browser-local "YYYY-MM-DDTHH:MM" so the bot resolves "tomorrow" in the user's timezone
+function localNow(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 interface ChatResponse {
@@ -15,7 +23,7 @@ interface ChatResponse {
 let currentAbortController: AbortController | null = null;
 
 export const chatApi = {
-  async sendMessage(message: string): Promise<ChatResponse> {
+  async sendMessage(message: string, history: ChatHistoryItem[] = []): Promise<ChatResponse> {
     // Cancel any existing request to prevent multiple simultaneous requests
     if (currentAbortController) {
       currentAbortController.abort();
@@ -33,7 +41,8 @@ export const chatApi = {
 
       // Create new AbortController for this request
       currentAbortController = new AbortController();
-      const timeoutId = setTimeout(() => currentAbortController?.abort(), 30000); // 30 second timeout
+      // Tool-using replies can take several model round trips
+      const timeoutId = setTimeout(() => currentAbortController?.abort(), 60000);
 
       try {
         // Call backend chat endpoint - note the correct path is /api/chat/ based on router prefix
@@ -49,7 +58,7 @@ export const chatApi = {
         const response = await fetch(`${API_BASE_URL}/api/chat/`, {
           method: 'POST',
           headers,
-          body: JSON.stringify({ message }),
+          body: JSON.stringify({ message, history, client_now: localNow() }),
           signal: currentAbortController.signal
         });
 

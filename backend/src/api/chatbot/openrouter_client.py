@@ -14,6 +14,8 @@ class OpenRouterClient:
         # Get from parameters or environment variables
         self.api_key = api_key or os.getenv("OPEN_ROUTER_API_KEY")
         self.base_url = base_url or os.getenv("OPEN_ROUTER_URL", "https://openrouter.ai/api/v1")
+        # The SDK appends /chat/completions itself; accept the full endpoint URL too
+        self.base_url = self.base_url.rstrip("/").removesuffix("/chat/completions")
         self.is_enabled = bool(self.api_key)  # Track if the client is enabled
 
         if self.is_enabled:
