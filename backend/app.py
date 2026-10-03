@@ -18,7 +18,9 @@ with gr.Blocks(title="Todo Backend") as status_page:
         "Set `NEXT_PUBLIC_API_BASE_URL` in the frontend to this Space's URL."
     )
 
-app = gr.mount_gradio_app(api, status_page, path="/ui")
+# ssr_mode=False: with SSR (on by default in Spaces) Gradio starts a Node server
+# on the first free port from 7860 while mounting, which then blocks uvicorn
+app = gr.mount_gradio_app(api, status_page, path="/ui", ssr_mode=False)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "7860")))
