@@ -47,10 +47,14 @@ if DATABASE_URL.startswith("postgres://"):
 print(f"Using DATABASE_URL: {DATABASE_URL[:50]}...")
 
 # Create the engine with proper configuration
+is_sqlite = "sqlite" in DATABASE_URL
 engine = create_engine(
     DATABASE_URL,
     echo=False,
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
+    connect_args={"check_same_thread": False} if is_sqlite else {},
+    # Hosted Postgres (e.g. Neon) closes idle connections; test before reuse
+    pool_pre_ping=not is_sqlite,
+    pool_recycle=300 if not is_sqlite else -1,
 )
 
 
