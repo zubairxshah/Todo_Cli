@@ -1,35 +1,62 @@
-from sqlmodel import create_engine, Session
+from sqlmodel import create_engine, Session, SQLModel
 from typing import Generator
 import os
 from contextlib import contextmanager
+from pathlib import Path
+
+# Load environment variables from .env file - look in parent directories
 try:
-    # Try relative import first
+    from dotenv import load_dotenv
+    # Try to find .env.local first, then .env in current dir, then parent dirs
+    env_path = Path(__file__).parent.parent.parent / ".env.local"
+    if not env_path.exists():
+        env_path = Path(__file__).parent.parent.parent / ".env"
+    if not env_path.exists():
+        env_path = Path(".env.local")
+    if not env_path.exists():
+        env_path = Path(".env")
+    load_dotenv(dotenv_path=env_path, override=False)
+    if env_path.exists():
+        print(f"Loaded environment from: {env_path}")
+except ImportError:
+    pass  # dotenv not available, that's fine
+
+# Import models to register them with SQLModel
+try:
+    # Try relative imports first
     from .models.task import Task
     from .models.skill import Skill
     from .models.user import User
 except ImportError:
-    # Fall back to absolute import
+    # Fall back to absolute imports
+    import sys
+    sys.path.insert(0, os.path.dirname(__file__))
     from models.task import Task
     from models.skill import Skill
     from models.user import User
-from sqlmodel import SQLModel
-
-# Load environment variables from .env file
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass  # dotenv not available, that's fine
 
 # Get database URL from environment, with a default for development
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./todo_test.db")
 
-# Create the engine
-engine = create_engine(DATABASE_URL, echo=True)
+# For PostgreSQL URLs, ensure proper driver is specified
+if DATABASE_URL.startswith("postgres://"):
+    # Convert postgres:// to postgresql:// for SQLAlchemy 2.0 compatibility
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg2://", 1)
+    print(f"Converted PostgreSQL URL for SQLAlchemy compatibility")
+
+print(f"Using DATABASE_URL: {DATABASE_URL[:50]}...")
+
+# Create the engine with proper configuration
+engine = create_engine(
+    DATABASE_URL,
+    echo=False,
+    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
+)
 
 
 # Create tables function
 def create_db_and_tables():
+    """Create all database tables"""
     SQLModel.metadata.create_all(engine, checkfirst=True)
 
 

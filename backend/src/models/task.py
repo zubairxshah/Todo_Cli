@@ -1,7 +1,7 @@
 from sqlmodel import SQLModel, Field
 from typing import Optional
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel
 
 
@@ -18,8 +18,8 @@ class TaskCreate(TaskBase):
 class Task(TaskBase, table=True):
     id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
     user_id: uuid.UUID
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
-    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
 
 
 class TaskRead(SQLModel):

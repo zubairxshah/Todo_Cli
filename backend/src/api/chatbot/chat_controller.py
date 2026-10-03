@@ -1,8 +1,12 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
-from .openrouter_client import openrouter_client
+from .openrouter_client import get_openrouter_client
+from ...services.task_execution_service import TaskExecutionService
+from ...database import get_session
+from sqlmodel import Session
 import logging
+import uuid
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -13,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 class ChatRequest(BaseModel):
     message: str
+    user_id: Optional[str] = None  # Optional user_id for task operations
 
 
 class ChatResponse(BaseModel):
@@ -22,11 +27,16 @@ class ChatResponse(BaseModel):
 
 
 @router.post("/", response_model=ChatResponse)
-async def chat_endpoint(chat_request: ChatRequest):
+async def chat_endpoint(
+    chat_request: ChatRequest,
+    session: Session = Depends(get_session)
+):
     """
-    Main chat endpoint that handles user messages and returns OpenRouter responses
+    Main chat endpoint that handles user messages with task execution capability.
+    Compatible with OpenAI SDK v2.0.0+
     """
     user_message = chat_request.message
+    user_id = chat_request.user_id
 
     # Log incoming request
     logger.info(f"Incoming chat request: {user_message[:100] if user_message else 'EMPTY'}")
@@ -41,7 +51,88 @@ async def chat_endpoint(chat_request: ChatRequest):
         )
 
     try:
-        # Generate response from OpenRouter (await the async call)
+        # First, try to parse as task command
+        task_command = TaskExecutionService.parse_task_command(user_message)
+        
+        if task_command:
+            logger.info(f"Detected task command: {task_command['action']}")
+            
+            # Convert user_id to UUID if provided
+            user_uuid = None
+            if user_id:
+                try:
+                    user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
+                except (ValueError, TypeError):
+                    logger.warning(f"Invalid user_id: {user_id}")
+            
+            # Execute the task operation
+            if task_command['action'] == 'create':
+                result = TaskExecutionService.execute_create_task(
+                    title=task_command.get('title'),
+                    description=task_command.get('description'),
+                    user_id=user_uuid,
+                    session=session
+                )
+                return ChatResponse(
+                    status="success" if result['success'] else "error",
+                    message=result['message'],
+                    data={'task': result.get('task')} if result.get('task') else None
+                )
+            
+            elif task_command['action'] == 'list':
+                result = TaskExecutionService.execute_list_tasks(
+                    user_id=user_uuid,
+                    session=session
+                )
+                return ChatResponse(
+                    status="success" if result['success'] else "error",
+                    message=result['message'],
+                    data={'tasks': result.get('tasks')} if result.get('tasks') else None
+                )
+            
+            elif task_command['action'] == 'update':
+                result = TaskExecutionService.execute_update_task(
+                    task_id=task_command.get('task_id'),
+                    title=task_command.get('title'),
+                    description=task_command.get('description'),
+                    completed=task_command.get('completed'),
+                    user_id=user_uuid,
+                    session=session
+                )
+                return ChatResponse(
+                    status="success" if result['success'] else "error",
+                    message=result['message'],
+                    data={'task': result.get('task')} if result.get('task') else None
+                )
+            
+            elif task_command['action'] == 'toggle':
+                result = TaskExecutionService.execute_toggle_task(
+                    task_id=task_command.get('task_id'),
+                    user_id=user_uuid,
+                    session=session
+                )
+                return ChatResponse(
+                    status="success" if result['success'] else "error",
+                    message=result['message'],
+                    data={'task': result.get('task')} if result.get('task') else None
+                )
+            
+            elif task_command['action'] == 'delete':
+                result = TaskExecutionService.execute_delete_task(
+                    task_id=task_command.get('task_id'),
+                    user_id=user_uuid,
+                    session=session
+                )
+                return ChatResponse(
+                    status="success" if result['success'] else "error",
+                    message=result['message'],
+                    data=None
+                )
+        
+        # If not a task command, use OpenRouter for conversation
+        openrouter_client = get_openrouter_client()
+        
+        # Generate response from OpenRouter using OpenAI SDK v2.0.0+
         openrouter_response = await openrouter_client.generate_response(user_message)
 
         # LOG THE RAW LLM RESPONSE OBJECT
@@ -107,4 +198,4 @@ async def health_check():
     """
     Health check endpoint to verify the chat service is running
     """
-    return {"status": "healthy", "service": "cohere-chat-api"}
+    return {"status": "healthy", "service": "openrouter-chat-api", "version": "2.0.0"}

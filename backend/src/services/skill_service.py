@@ -46,8 +46,8 @@ def update_skill(session: Session, skill_id: uuid.UUID, user_id: uuid.UUID, skil
         setattr(db_skill, field, value)
 
     # Update the updated_at timestamp
-    from datetime import datetime
-    db_skill.updated_at = datetime.utcnow()
+    from datetime import datetime, timezone
+    db_skill.updated_at = datetime.now(timezone.utc)
 
     session.add(db_skill)
     session.commit()

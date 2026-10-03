@@ -122,7 +122,7 @@ export const chatApi = {
       currentAbortController.abort();
       currentAbortController = null;
     }
-  }
+  },
 
   // Health check for the chat service
   async healthCheck(): Promise<boolean> {

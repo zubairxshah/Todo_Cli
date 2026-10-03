@@ -1,65 +1,97 @@
 #!/usr/bin/env python3
 """
-Test script for the Todo CLI application.
+Test script for the Todo backend API.
 
-This script demonstrates the correct usage of the Todo CLI application.
-Since the application uses in-memory storage, all operations must be
-performed in a single run to see the persistence of tasks within that session.
+This script demonstrates testing the Todo backend using httpx>=0.26.0
+with FastAPI>=0.109.0.
 """
 
-from todo_cli import TodoCLI
+import httpx
+import json
+import asyncio
+from pathlib import Path
+import sys
 
-def main():
-    print("=== Todo CLI Application Test ===\n")
+# Add the project root to the Python path
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
 
-    # Create a single instance to maintain state during this session
-    cli = TodoCLI()
 
-    print("1. Adding tasks:")
-    cli.add_task("Buy groceries")
-    cli.add_task("Walk the dog")
-    cli.add_task("Do laundry")
-    print()
+def test_backend_api():
+    """Test the backend API with httpx"""
+    base_url = "http://localhost:8000"
+    
+    print("=== Testing Todo Backend API ===\n")
+    
+    # Test health check if available
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            print("1. Testing health check endpoint...")
+            response = client.get(f"{base_url}/api/chat/health")
+            print(f"   Status: {response.status_code}")
+            if response.status_code == 200:
+                print(f"   Response: {response.json()}")
+            print()
+    except httpx.ConnectError:
+        print("[ERROR] Cannot connect to backend. Make sure it's running on http://localhost:8000")
+        return False
+    except Exception as e:
+        print(f"[WARNING] Health check failed: {str(e)}\n")
 
-    print("2. Listing all tasks:")
-    cli.list_tasks()
-    print()
+    # Test chat endpoint
+    print("2. Testing chat endpoint...")
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            payload = {
+                "message": "Hello, can you help me with my tasks?"
+            }
+            response = client.post(f"{base_url}/api/chat/", json=payload)
+            print(f"   Status: {response.status_code}")
+            print(f"   Response: {response.json()}")
+            print()
+    except Exception as e:
+        print(f"[ERROR] Chat endpoint failed: {str(e)}\n")
 
-    print("3. Updating a task:")
-    cli.update_task(2, "Walk the cat")
-    print()
+    print("=== Test completed ===")
+    return True
 
-    print("4. Marking task as complete:")
-    cli.complete_task(1)
-    print()
 
-    print("5. Marking task as incomplete:")
-    cli.incomplete_task(3)
-    print()
+async def test_backend_api_async():
+    """Test the backend API asynchronously"""
+    base_url = "http://localhost:8000"
+    
+    print("=== Testing Todo Backend API (Async) ===\n")
+    
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            print("1. Testing async chat endpoint...")
+            payload = {
+                "message": "Test async message"
+            }
+            response = await client.post(f"{base_url}/api/chat/", json=payload)
+            print(f"   Status: {response.status_code}")
+            print(f"   Response: {response.json()}")
+            print()
+    except httpx.ConnectError:
+        print("[ERROR] Cannot connect to backend. Make sure it's running.")
+        return False
+    except Exception as e:
+        print(f"[ERROR] Async test failed: {str(e)}\n")
+    
+    print("=== Async test completed ===")
+    return True
 
-    print("6. Listing tasks after updates:")
-    cli.list_tasks()
-    print()
-
-    print("7. Deleting a task:")
-    cli.delete_task(2)
-    print()
-
-    print("8. Final list:")
-    cli.list_tasks()
-    print()
-
-    print("=== Error handling tests ===")
-    print("Trying to add empty task:")
-    cli.add_task("")
-
-    print("Trying to update non-existent task:")
-    cli.update_task(999, "Non-existent task")
-
-    print("Trying to use invalid ID:")
-    cli.validate_task_id("abc")
-
-    print("\n=== Test completed ===")
 
 if __name__ == "__main__":
-    main()
+    print("Starting Todo Backend Tests\n")
+    
+    # Run synchronous tests
+    test_backend_api()
+    
+    print("\n" + "="*50 + "\n")
+    
+    # Run async tests (optional)
+    try:
+        asyncio.run(test_backend_api_async())
+    except Exception as e:
+        print(f"Async tests not available: {str(e)}")

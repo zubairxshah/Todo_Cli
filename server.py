@@ -1,4 +1,5 @@
 # server.py (for backend)
+# Compatible with uvicorn>=0.27.0 and fastapi>=0.109.0
 import uvicorn
 import os
 import sys
@@ -13,4 +14,10 @@ from backend.src.main import app
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
     host = os.getenv("HOST", "0.0.0.0")
-    uvicorn.run("backend.src.main:app", host=host, port=port)
+    # uvicorn.run with app module reference works with>=0.27.0
+    uvicorn.run(
+        "backend.src.main:app",
+        host=host,
+        port=port,
+        log_level="info"
+    )

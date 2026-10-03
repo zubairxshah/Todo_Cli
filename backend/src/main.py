@@ -4,13 +4,12 @@ from fastapi.responses import Response
 from sqlmodel import Session, select
 from typing import List
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 try:
     # Try relative imports first (when running as package)
     from .database import get_session, create_db_and_tables
     from .models.task import Task, TaskRead, TaskCreate, TaskUpdate
-    from .models.skill import Skill
     from .auth.jwt_handler import get_current_user
     from .api.auth import router as auth_router
     from .api.skills import router as skills_router
@@ -25,7 +24,6 @@ except ImportError:
     sys.path.append(os.path.join(os.path.dirname(__file__)))
     from database import get_session, create_db_and_tables
     from models.task import Task, TaskRead, TaskCreate, TaskUpdate
-    from models.skill import Skill
     from auth.jwt_handler import get_current_user
     from api.auth import router as auth_router
     from api.skills import router as skills_router
@@ -70,19 +68,17 @@ agent_registry = AgentRegistry()
 async def on_startup():
     create_db_and_tables()
 
-    # Validate OpenRouter environment variables at startup (FAIL FAST)
+    # OpenRouter is now optional - it will use simulated responses if not configured
     import os
     api_key = os.getenv("OPEN_ROUTER_API_KEY")
     base_url = os.getenv("OPEN_ROUTER_URL")
 
-    if not api_key:
-        raise ValueError("OPEN_ROUTER_API_KEY environment variable is not set. Chat functionality cannot start.")
-
-    if not base_url:
-        raise ValueError("OPEN_ROUTER_URL environment variable is not set. Chat functionality cannot start.")
-
-    if base_url != "https://openrouter.ai/api/v1/chat/completions":
-        print(f"WARNING: OPEN_ROUTER_URL does not match expected URL. Expected: https://openrouter.ai/api/v1/chat/completions, Got: {base_url}")
+    if api_key and base_url:
+        print("OpenRouter configured for chat functionality")
+        if base_url != "https://openrouter.ai/api/v1":
+            print(f"WARNING: OPEN_ROUTER_URL differs from expected. Got: {base_url}")
+    else:
+        print("OpenRouter not fully configured. Using simulated responses for chat.")
 
     # Initialize default agents
     try:
@@ -186,7 +182,7 @@ def update_task(
         setattr(db_task, field, value)
 
     # Update the updated_at timestamp
-    db_task.updated_at = datetime.utcnow()
+    db_task.updated_at = datetime.now(timezone.utc)
 
     session.add(db_task)
     session.commit()
@@ -213,7 +209,7 @@ def toggle_task_completion(
     # Toggle the completion status
     db_task.completed = not db_task.completed
     # Update the updated_at timestamp
-    db_task.updated_at = datetime.utcnow()
+    db_task.updated_at = datetime.now(timezone.utc)
     session.add(db_task)
     session.commit()
     session.refresh(db_task)
