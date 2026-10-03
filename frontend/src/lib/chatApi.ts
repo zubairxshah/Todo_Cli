@@ -37,8 +37,41 @@ export const chatApi = {
 
       try {
         // Call backend chat endpoint - note the correct path is /api/chat/ based on router prefix
-        // The JWT is attached by api.request; the backend derives the user from it
-        const response = await api.post('/api/chat/', { message });
+        // We need to use fetch directly to support the AbortSignal since api.post doesn't support options
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const token = localStorage.getItem('token');
+
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        };
+
+        const response = await fetch(`${API_BASE_URL}/api/chat/`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ message }),
+          signal: currentAbortController.signal
+        });
+
+        // Expired or invalid token: same handling as api.request
+        if (response.status === 401) {
+          clearTimeout(timeoutId);
+          currentAbortController = null;
+          localStorage.removeItem('token');
+          window.location.href = '/login';
+          return {
+            status: 'fallback',
+            message: 'Authentication required. Please log in again.',
+            data: null
+          };
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Request failed with status ${response.status}: ${errorText}`);
+        }
+
+        const responseData = await response.json();
 
         clearTimeout(timeoutId);
 
@@ -46,20 +79,20 @@ export const chatApi = {
         currentAbortController = null;
 
         // Handle the response based on the backend format
-        if (response) {
+        if (responseData) {
           // Ensure response conforms to expected schema
-          if (typeof response === 'object' && response.status && response.message !== undefined) {
+          if (typeof responseData === 'object' && responseData.status && responseData.message !== undefined) {
             // Ensure message is never empty - avoid the specific fallback message
-            const safeMessage = response.message || 'I processed your request and here\'s the response from the AI assistant.';
+            const safeMessage = responseData.message || 'I processed your request and here\'s the response from the AI assistant.';
 
             return {
-              status: response.status,
+              status: responseData.status,
               message: safeMessage,
-              data: response.data || null
+              data: responseData.data || null
             };
           } else {
             // Unexpected response format
-            console.warn('Unexpected response format from chat API:', response);
+            console.warn('Unexpected response format from chat API:', responseData);
             return {
               status: 'error',
               message: 'Received unexpected response format from the server.',
@@ -126,7 +159,9 @@ export const chatApi = {
   // Health check for the chat service
   async healthCheck(): Promise<boolean> {
     try {
-      const response = await fetch(`${api['API_BASE_URL']}/api/chat/health`);
+      // Use the same base URL pattern as in api.ts
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${API_BASE_URL}/api/chat/health`);
       return response.ok;
     } catch (error) {
       console.error('Chat service health check failed:', error);

@@ -49,15 +49,6 @@ app.include_router(agents_router)
 app.include_router(chat_router)
 
 
-# Add CORS headers to all responses
-@app.middleware("http")
-async def add_cors_headers(request, call_next):
-    response = await call_next(request)
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Credentials"] = "true"
-    response.headers["Access-Control-Allow-Headers"] = "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-    return response
 
 
 # Global agent registry instance
@@ -108,7 +99,13 @@ async def on_startup():
 
 @app.get("/")
 def read_root():
-    return {"message": "Todo API - Phase 2 Implementation"}
+    return {"message": "Todo API - Phase 5 Implementation - Ready for Production"}
+
+
+@app.get("/health")
+def health_check():
+    """Health check endpoint for Render deployment"""
+    return {"status": "healthy", "message": "Todo API is running"}
 
 
 @app.post("/api/tasks", response_model=TaskRead, status_code=status.HTTP_201_CREATED)
@@ -267,3 +264,11 @@ def favicon():
             b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
         )
         return Response(content=transparent_favicon, media_type="image/x-icon")
+
+
+@app.get("/.well-known/appspecific/com.chrome.devtools.json", include_in_schema=False)
+def chrome_devtools_manifest():
+    # Return an empty JSON response to prevent 404 errors
+    # This handles Chrome's attempt to find devtools configuration
+    from fastapi.responses import JSONResponse
+    return JSONResponse(content={}, status_code=200)

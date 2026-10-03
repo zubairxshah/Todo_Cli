@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  reactStrictMode: true,
+  output: "standalone",
   webpack: (config, { isServer }) => {
     // Handle crypto module for client-side
     if (!isServer) {
@@ -16,6 +18,7 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['better-auth'],
   },
+  swcMinify: false, // Disable SWC minification to avoid Unicode issues
 };
 
 module.exports = nextConfig;

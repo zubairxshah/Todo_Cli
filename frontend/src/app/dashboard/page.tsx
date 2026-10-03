@@ -317,7 +317,7 @@ export default function Dashboard() {
             <div>
               <div className="bg-white rounded-lg shadow p-4">
                 <h2 className="text-lg font-medium text-gray-900 mb-4">AI Assistant</h2>
-                <ChatComponent />
+                <ChatComponent tasks={tasks} setTasks={setTasks} setError={setError} />
               </div>
             </div>
           </div>

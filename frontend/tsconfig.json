@@ -16,11 +16,15 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
+    "ignoreDeprecations": "5.0",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@/components/*": ["./src/components/*"],
+      "@/lib/*": ["./src/lib/*"],
+      "@/features/*": ["./src/features/*"],
+      "@/app/*": ["./src/app/*"]
     },
-    "ignoreDeprecations": "5.0",
     "plugins": [
       {
         "name": "next"

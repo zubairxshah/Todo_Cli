@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: todo-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn src.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_PATH
+        value: /app/src
+      - key: OPEN_ROUTER_API_KEY
+        sync: false
+      - key: OPEN_ROUTER_URL
+        value: https://openrouter.ai/api/v1/chat/completions
