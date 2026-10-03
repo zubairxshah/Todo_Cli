@@ -61,15 +61,11 @@ async def on_startup():
 
     # OpenRouter is now optional - it will use simulated responses if not configured
     import os
-    api_key = os.getenv("OPEN_ROUTER_API_KEY")
-    base_url = os.getenv("OPEN_ROUTER_URL")
-
-    if api_key and base_url:
+    # Only the key is required; the client defaults the URL to OpenRouter's API
+    if os.getenv("OPEN_ROUTER_API_KEY"):
         print("OpenRouter configured for chat functionality")
-        if base_url != "https://openrouter.ai/api/v1":
-            print(f"WARNING: OPEN_ROUTER_URL differs from expected. Got: {base_url}")
     else:
-        print("OpenRouter not fully configured. Using simulated responses for chat.")
+        print("OPEN_ROUTER_API_KEY not set. Using simulated responses for chat.")
 
     # Initialize default agents
     try:

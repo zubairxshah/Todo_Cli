@@ -1,0 +1,10 @@
+# Requirements for the Hugging Face Gradio Space (uploaded as requirements.txt).
+# Only what backend/src imports; Gradio itself is installed by the Space and
+# brings compatible fastapi, pydantic and uvicorn versions.
+sqlmodel>=0.0.22
+psycopg2-binary>=2.9.9
+python-jose[cryptography]>=3.3.0
+bcrypt>=4.0.0
+python-dotenv>=1.0.0
+httpx>=0.28.1
+openai>=2.0.0

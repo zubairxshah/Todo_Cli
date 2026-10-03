@@ -19,6 +19,23 @@ Free-plan notes: the service sleeps after ~15 minutes idle, so the first request
 take about a minute. A free Render database expires after 30 days; for a lasting
 database, create one at https://neon.tech and set its URL as `DATABASE_URL` instead.
 
+## 1b. Alternative: backend on Hugging Face Spaces (free, no card) + Neon
+
+A Gradio Space runs `backend/app.py`, which serves the same FastAPI API
+(`/api/...`, `/health`) and a status page on `/ui`.
+
+1. Create a Postgres database at https://neon.tech and copy its connection string.
+2. https://huggingface.co/new-space: SDK **Gradio**, blank template, CPU basic, **Public**.
+3. Settings → Variables and secrets → **New secret** for each: `DATABASE_URL`
+   (Neon string), `SECRET_KEY` (any long random string), `OPEN_ROUTER_API_KEY`.
+4. Files → Upload files. Upload, at the Space root:
+   - `backend/README.md` (the Space settings: `sdk: gradio`, `app_file: app.py`)
+   - `backend/app.py`
+   - `backend/requirements-space.txt`, **renamed to `requirements.txt`**
+   - the `backend/src/` folder (without `__pycache__`)
+5. After the build: `https://<user>-<space>.hf.space/health` returns healthy. Use that
+   base URL as `NEXT_PUBLIC_API_BASE_URL` in Vercel.
+
 ## 2. Frontend on Vercel
 
 1. Sign in at https://vercel.com with GitHub. **Add New → Project**, import this repository.
