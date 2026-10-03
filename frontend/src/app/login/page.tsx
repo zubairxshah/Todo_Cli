@@ -10,27 +10,27 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    setError('');
+    setSubmitting(true);
     try {
-      console.log('Attempting login with:', { email, password });
-      const response = await api.post('/api/auth/login', { email, password });
-      console.log('Login response received:', response);
-
-      if (response && response.access_token) {
-        console.log('Storing token and navigating to dashboard');
+      const response = await api.post('/api/auth/login', { email: email.trim(), password });
+      if (response?.access_token) {
         localStorage.setItem('token', response.access_token);
         router.push('/dashboard');
       } else {
-        console.log('Login failed, response:', response);
-        setError(response?.detail || 'Login failed');
+        setError('Login failed. Please try again.');
       }
     } catch (err) {
-      console.error('Login error:', err);
-      setError('An error occurred during login');
+      // ApiError carries the backend's message, e.g. "Incorrect email or password"
+      setError((err as Error).message || 'Login failed. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -87,9 +87,10 @@ export default function Login() {
           <div>
             <button
               type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              disabled={submitting}
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:cursor-wait disabled:bg-indigo-400"
             >
-              Sign in
+              {submitting ? 'Signing in…' : 'Sign in'}
             </button>
           </div>
         </form>

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import Response
-from sqlmodel import Session, select
+from sqlmodel import Session, select, func
 from datetime import timedelta
 try:
     # Try relative import first
@@ -58,10 +58,20 @@ class TokenResponse(BaseModel):
     expires_in: int = 3600  # 1 hour in seconds
 
 
+def _normalize_email(email: str) -> str:
+    return email.strip().lower()
+
+
+def _find_user_by_email(session: Session, email: str):
+    # Case-insensitive: phones often capitalise the first letter of an email
+    return session.exec(
+        select(User).where(func.lower(User.email) == _normalize_email(email))
+    ).first()
+
+
 @router.post("/login", response_model=TokenResponse)
 def login(login_request: LoginRequest, session: Session = Depends(get_session)):
-    # Find user by email
-    user = session.exec(select(User).where(User.email == login_request.email)).first()
+    user = _find_user_by_email(session, login_request.email)
 
     # Check if user exists and password is correct
     if not user or not verify_password(login_request.password, user.hashed_password):
@@ -91,7 +101,7 @@ def login(login_request: LoginRequest, session: Session = Depends(get_session)):
 @router.post("/signup", response_model=TokenResponse)
 def signup(register_request: RegisterRequest, session: Session = Depends(get_session)):
     # Check if user with email already exists
-    existing_user = session.exec(select(User).where(User.email == register_request.email)).first()
+    existing_user = _find_user_by_email(session, register_request.email)
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -103,7 +113,7 @@ def signup(register_request: RegisterRequest, session: Session = Depends(get_ses
 
     # Create new user
     user = User(
-        email=register_request.email,
+        email=_normalize_email(register_request.email),
         hashed_password=hashed_password
     )
     session.add(user)

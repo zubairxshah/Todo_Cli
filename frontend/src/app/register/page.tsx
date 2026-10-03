@@ -11,6 +11,7 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -21,18 +22,20 @@ export default function Register() {
       return;
     }
 
+    setError('');
+    setSubmitting(true);
     try {
-      const response = await api.post('/api/auth/signup', { email, password });
-
-      if (response && response.access_token) {
+      const response = await api.post('/api/auth/signup', { email: email.trim(), password });
+      if (response?.access_token) {
         localStorage.setItem('token', response.access_token);
         router.push('/dashboard');
       } else {
-        setError(response?.detail || 'Registration failed');
+        setError('Registration failed. Please try again.');
       }
     } catch (err) {
-      setError('An error occurred during registration');
-      console.error(err);
+      setError((err as Error).message || 'Registration failed. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -104,9 +107,10 @@ export default function Register() {
           <div>
             <button
               type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              disabled={submitting}
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:cursor-wait disabled:bg-indigo-400"
             >
-              Register
+              {submitting ? 'Creating account…' : 'Register'}
             </button>
           </div>
         </form>
