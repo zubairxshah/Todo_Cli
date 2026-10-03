@@ -3,6 +3,7 @@ from typing import Generator
 import os
 from contextlib import contextmanager
 from pathlib import Path
+from urllib.parse import urlsplit
 
 # Load environment variables from .env file - look in parent directories
 try:
@@ -44,7 +45,9 @@ if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg2://", 1)
     print(f"Converted PostgreSQL URL for SQLAlchemy compatibility")
 
-print(f"Using DATABASE_URL: {DATABASE_URL[:50]}...")
+# Log only the scheme and host: the full URL contains the password
+_url_parts = urlsplit(DATABASE_URL)
+print(f"Using database: {_url_parts.scheme}://{_url_parts.hostname or _url_parts.path}")
 
 # Create the engine with proper configuration
 is_sqlite = "sqlite" in DATABASE_URL
